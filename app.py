@@ -33,6 +33,7 @@ app_title = 'ROOMBOX - HACKSIMBUILD 2024'
 st.set_page_config(
     page_title=app_title, 
     layout='wide',
+    page_icon='assets/240520_Roombox_Logo_v4.ico',
     initial_sidebar_state='collapsed'
     )
 
@@ -87,11 +88,10 @@ project = st.sidebar.text_input('Project Name', value="hacksimbuild-2024")
 
 api_client = ApiClient(api_token=api_key)
 
-st.header('ROOMBOX')
-st.image("assets/240520_Roombox_Logo_v4.png", width=300)
-if st.button('Clear Session State'):
-    st.session_state.clear()
-    st.success('Session state cleared!')
+st.image("assets/240520_Roombox_Logo_w.Name.png", width=600)
+# if st.button('Clear Session State'):
+#     st.session_state.clear()
+#     st.success('Session state cleared!')
 
 tab1, tab2 = st.tabs(['| 1 Model Creation','| 2 Results Visualization'])
 
@@ -328,7 +328,7 @@ with tab1:
         if epw_data != 0:
             st.write('Project Location:',str(epw_data.location).split(',')[1])
             study_name = st.text_input('Study Name')
-            run_simulation = st.button('Run Simulation')
+            run_simulation = st.button('Run Study')
         else:
             st.error('Add Project EPW file')
 
