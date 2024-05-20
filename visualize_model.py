@@ -10,7 +10,7 @@ def generate_vtk_model(hb_model: Model, container):
     if not st.session_state.vtk_path:
         directory = os.path.join(
             st.session_state.target_folder.as_posix(),
-            'data', st.session_state.user_id
+            'data'#, st.session_state.user_id
         )
         if not os.path.isdir(directory):
             os.makedirs(directory)
