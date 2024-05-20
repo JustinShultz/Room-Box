@@ -25,6 +25,7 @@ from pollination_io.interactors import Job, NewJob, Recipe
 from queenbee.job.job import JobStatusEnum
 from streamlit_autorefresh import st_autorefresh
 import dload
+import zipfile
 
 
 
@@ -115,10 +116,10 @@ with tab1:
 
         #### room program
         with st.expander('1 - Bldg & Room Program', expanded=False):
-            bldg_prog = st.selectbox('Bldg Program', options=['Select Bldg Program', 'Office','Lab','Higher Ed'], index=1, label_visibility='collapsed')
+            bldg_prog = st.selectbox('Bldg Program', options=['Select Bldg Program', 'Office','Lab','Higher Ed'], index=0, label_visibility='collapsed')
             room_prog = ''
             if bldg_prog != 'Select Bldg Program':
-                room_prog = st.selectbox('Room Program', options=['Select Room Program', 'Open Office','Conference','Classroom'], index=1, label_visibility='collapsed')
+                room_prog = st.selectbox('Room Program', options=['Select Room Program', 'Open Office','Conference','Classroom'], index=0, label_visibility='collapsed')
         
         if bldg_prog != 'Select Bldg Program' and room_prog != 'Select Room Program':
             st.write(bldg_prog," :: ",room_prog)
@@ -432,6 +433,148 @@ with tab1:
                     #     )
 
 with tab2:
-    if baseline_model:
-        st.write(baseline_model)
+    from pollination_streamlit.selectors import get_api_client
+    from pollination_streamlit_io import (select_account, select_cloud_artifact,
+                                        select_project, select_study, select_run)
+    from pollination_streamlit_viewer import viewer
+
+    # in this tutorial, the api_client is taken from app.py
+    # typically you would create the api_client as shown below
+    
+    api_client = get_api_client()
+
+    account = select_account('select-account', api_client)
+
+    if account:
+        # if it is an organization it uses account_name otherwise username
+        project_owner = account.get('username') or account.get('account_name')
+        st.subheader(f'Hi {project_owner}! Select a project:')
+
+        pcol1, pcol2 = st.columns(2)
+
+        with pcol1:
+            project = select_project(
+                'select-project',
+                api_client,
+                project_owner=project_owner
+            )
+        with pcol2:
+            st.json(project or '{}', expanded=False)
+
+        if project:
+            # get project name
+            project_name = project.get('name')
+            st.subheader('Select a study:')
+
+            scol1, scol2 = st.columns(2)
+
+            with scol1:
+                study = select_study(
+                    'select-study',
+                    api_client,
+                    project_name=project_name,
+                    project_owner=project_owner,
+                )
+            with scol2:
+                st.json(study or '{}', expanded=False)
         
+        if study:
+            #get run name
+            study_name = study.get('name')
+            # st.write(study.get('id'))
+            st.subheader('Select a run:')
+
+            scol1, scol2 = st.columns(2)
+
+            with scol1:
+                run = select_run(
+                    'select-run',
+                    api_client,
+                    project_name=project_name,
+                    project_owner=project_owner,
+                    job_id=study.get('id'),
+                )
+                # st.write(run)
+            with scol2:
+                st.json(run or '{}', expanded=False)
+            
+        if study:
+            study_id = study.get('id')
+            st.subheader('Select an artifact:')
+            st.info('It returns the name of the file \
+                    and the binary data to save.')
+
+            acol1, acol2 = st.columns(2)
+
+            with acol1:
+                artifact = select_cloud_artifact(
+                    'sel-artifact',
+                    api_client,
+                    project_name=project_name,
+                    project_owner=project_owner,
+                    study_id=study_id,
+                    file_name_match=".*"
+                )
+            with acol2:
+                st.json(artifact or {}, expanded=False)
+        
+        name, value, type = artifact
+
+        st.write(name)
+
+        if artifact:
+            st.info('Click on visualization card.')
+            if name and name.endswith('vtkjs'):
+                viewer(key='my-vsf', content=value)
+
+        # st.write(artifact.file)
+        # if artifact:
+        #     dload.save_unzip(artifact[0], './data/results/', delete_after=False,)
+
+            # with zipfile.ZipFile(artifact) as zip_folder:
+            #     zip_folder.extractall('./data/results/')
+            
+            # vtkjs_path = pathlib.Path(out.target_folder + out.output_name)
+        #         viewer(content=vtkjs_path.read_bytes(), key='df')
+
+        # if run and run.progress == 100:
+        #     if name and name.endswith('vtkjs'):
+        #         viewer(key='my-vsf', content=value)
+
+        # def download_output(api_key: str, owner: str, project: str, job_id: str, run_index: int,
+        #         output_name: str, target_folder: str) -> None:
+        #     """Download output from a job on Pollination.
+
+        #     Args:
+        #         api_key: The API key of the Pollination account.
+        #         owner: The owner of the Pollination account.
+        #         project: The name of the project inside which the job was created.
+        #         job_id: The id of the job.
+        #         run_index: The index of the run inside the job.
+        #         output_name: The name of the output you wish to download. You can find the names
+        #             of all the outputs either on the job page or on the recipe page.
+        #         target_folder: The folder where the output will be downloaded.
+        #     """
+        #     out_job = Job(owner, project, job_id, client=api_client)
+        #     out_run = out_job.runs[run_index]
+        #     output = out_run.download_zipped_output(output_name)
+
+        #     with zipfile.ZipFile(output) as zip_folder:
+        #         zip_folder.extractall(target_folder)
+        
+        # if study is not None and project_owner is not None and project_name is not None and run is not None:
+        #     out = download_output(
+        #         owner= project_owner,
+        #         project= project_name,
+        #         job_id= study.get('id'),
+        #         run_index= 1,
+        #         output_name='visualization.vtkjs',
+        #         target_folder='./data/results',
+        #         api_key=api_key
+        #     )
+
+        #     st.write(out)
+
+        #     if out is not None:
+        #         vtkjs_path = pathlib.Path(out.target_folder + out.output_name)
+        #         viewer(content=vtkjs_path.read_bytes(), key='df')
