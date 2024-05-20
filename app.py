@@ -315,7 +315,12 @@ with tab1:
                 client = api_client
                 )
             
-            new_job = NewJob(owner, project, recipe, client=api_client)
+            new_job = NewJob(
+                owner=owner, 
+                project=project, 
+                recipe=recipe, 
+                name='HackSimBuild Studies',
+                client=api_client)
             wea_project_path = new_job.upload_artifact(pathlib.Path(wea_file), 'streamlit-job')
             
             recipe_inputs = {
