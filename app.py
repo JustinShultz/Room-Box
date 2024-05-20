@@ -1,6 +1,9 @@
 import pathlib
 from uuid import uuid4
 
+import os
+import glob
+import ladybug_geometry.geometry2d
 import ladybug_geometry.geometry3d
 import streamlit as st
 import honeybee
@@ -21,6 +24,7 @@ from pollination_io.api.client import ApiClient
 from pollination_io.interactors import Job, NewJob, Recipe
 from queenbee.job.job import JobStatusEnum
 from streamlit_autorefresh import st_autorefresh
+import dload
 
 
 
@@ -35,8 +39,9 @@ model_name =[]
 baseline_model = []
 hor_num = 0
 hor_depth = 0
-# vert_depth = 0
-# vert_num = 0
+vert_depth = 0
+vert_num = 0
+epw_data = 0
 
 
 #### hide sidebar by default
@@ -121,19 +126,19 @@ with tab1:
 
             horizontal = st.checkbox('Horizontal Shading')
             if horizontal:
-                hor_num = st.slider("Number of Overhangs", max_value=5, min_value=0, value=1)
+                hor_num = st.slider("Number of Overhangs", max_value=5, min_value=1, value=1)
                 hor_depth = st.slider("Overhang Depth", max_value=6.0, min_value=0.0, step=.5, value=1.0)
                 
                 
             vertical = st.checkbox('Vertical Shading')
             if vertical:
-                vert_num = st.slider("Number of Fins", max_value=5, min_value=0, value=1)
+                vert_num = st.slider("Number of Fins", max_value=5, min_value=1, value=1)
                 vert_depth = st.slider("Fin Depth", max_value=6.0, min_value=0.0, step=.5, value=1.0)
 
         if horizontal:
             st.write(str(hor_num),' x  Horizontal Overhang: ',str(hor_depth)," deep")
-        # if vertical:
-        #     st.write(str(vert_num),' x  Vertical Overhang: ',str(vert_depth)," deep")
+        if vertical:
+            st.write(str(vert_num),' x  Vertical Overhang: ',str(vert_depth)," deep")
 
         save_model = ''
 
@@ -161,13 +166,18 @@ with tab1:
         faces.apertures_by_ratio(wwr)
         apertures: Aperture = faces.apertures[0]
 
-        st.write(apertures)
 
-        if hor_num >0:
-            apertures.louvers_by_count(hor_num,hor_depth)
+        aperture_height = (apertures.max - apertures.min).z
+        aperture_width = (apertures.max.x - apertures.min.x)
 
 
-        simple_model = Model.from_objects(f'model_{room_width}_{room_depth}_{room_height}_{wwr}_{room_orient}_{hor_depth}_{hor_num}',[room],units='Feet')
+        if horizontal:
+            apertures.louvers_by_distance_between(distance=aperture_height/hor_num, depth=hor_depth, base_name='shade_hor',contour_vector=ladybug_geometry.geometry2d.Vector2D(0, 1))
+        if vertical:
+            apertures.louvers_by_distance_between(distance=aperture_width/vert_num, depth=vert_depth, contour_vector=ladybug_geometry.geometry2d.Vector2D(1, 0), base_name='shade_vert')
+
+
+        simple_model = Model.from_objects(f'model_{room_width}_{room_depth}_{room_height}_{wwr}_{room_orient}_{hor_depth}_{hor_num}_{vert_depth}_{vert_num}',[room],units='Feet')
 
 
         if model_name in st.session_state['analysis_models']:
@@ -230,11 +240,38 @@ with tab1:
             url = "https://www.ladybug.tools/epwmap/"
             st.write("Launch [EPW Map](%s)" % url)
             epw_url = st.text_input('EPW URL')
-            st.write('-- or --')
-            epw_data = st.file_uploader("EPW File", type=['epw'], key='epw_data')
 
-        if epw_data or epw_url:
-            st.write('Project Location from EPW')
+            files = glob.glob('data/epw/*')
+            for f in files:
+                os.remove(f)
+
+            dload.save_unzip(epw_url, 'data/epw/', delete_after=True,)
+
+
+
+            for file_name in os.listdir('data/epw/'):
+                if file_name.endswith(".epw"):
+                    epw_urlfile = 'data/epw/' + file_name
+
+                    epw_filepath = epw_urlfile
+            
+                    st.write(epw_filepath)
+
+
+
+            st.write('-- or --')
+            epw_upload =  st.file_uploader("EPW File", type=['epw'], key='epw_data', accept_multiple_files=False)
+            st.write(epw_upload)
+
+            if epw_upload:
+                epw_filepath = pathlib.Path(f'./data/{epw_upload.name}')
+                st.write(epw_filepath)
+
+            epw_data = EPW(epw_filepath)
+
+
+        if epw_data != 0:
+            st.write('Project Location:',str(epw_data.location).split(',')[1])
             run_simulation = st.button('Run Simulation')
         else:
             st.error('Add Project EPW file')
@@ -247,13 +284,13 @@ with tab1:
 
 
     if epw_data:
-        epw_file = pathlib.Path(f'./data/{epw_data.name}')
-        st.write(epw_file)
-        epw_file.parent.mkdir(parents=True, exist_ok=True)
-        epw_file.write_bytes(epw_data.read())
+        # epw_file = pathlib.Path(f'./data/{epw_data.name}')
+        # st.write(epw_file)
+        # epw_file.parent.mkdir(parents=True, exist_ok=True)
+        # epw_file.write_bytes(epw_data.read())
 
-        epw_obj = EPW(epw_file)
-        wea_obj = Wea.from_epw_file(epw_file)
+        # epw_obj = EPW(epw_file)
+        wea_obj = Wea.from_epw_file(epw_filepath)
         wea_file = wea_obj.write(f'./data/weather_file.wea')
         st.write(wea_file)
         # .to_wea(file_path=epw_file)
