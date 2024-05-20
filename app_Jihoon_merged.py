@@ -26,7 +26,10 @@ from queenbee.job.job import JobStatusEnum
 from streamlit_autorefresh import st_autorefresh
 import dload
 
-
+# Jihoon: Modules to implement an EnergyPlus simulations
+from inputs import initialize
+from simulation import run_energy_simulation
+from outputs import display_results
 
 #### CONFIGURE PAGE
 app_title = 'ROOMBOX - HACKSIMBUILD 2024'
@@ -48,6 +51,9 @@ if 'study_inputs' not in st.session_state:
 
 if 'model_var' not in st.session_state:
     st.session_state['model_var'] = []
+
+# Jihoon: initialize the app and load up all of the inputs
+initialize()
 
 model_name = []
 baseline_model = []
@@ -462,10 +468,6 @@ with tab1:
                     #     )
     
 
-    # Jihoon Modules to implement an EnergyPlus simulations
-    from inputs import initialize
-    from simulation import run_energy_simulation
-    from outputs import display_results
 
     st.markdown("""---""")  # horizontal divider line between input and output
     out_container = st.container()  # container to eventually hold the results

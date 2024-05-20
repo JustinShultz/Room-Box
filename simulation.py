@@ -267,7 +267,5 @@ def run_energy_simulation(target_folder, hb_model, epw_path, ddy_path, north):
             for error in err_obj.fatal_errors:
                 raise Exception(error)
         if sql is not None and os.path.isfile(sql):
-            sql_copy = f'{sql.split('.')[0]}2.sql'
-            shutil.copyfile(sql, sql_copy)
-            st.session_state.sql_results = load_sql_data(sql_copy, hb_model)
+            st.session_state.sql_results = load_sql_data(sql, hb_model)
             button_holder.write('')

@@ -38,6 +38,9 @@ run_simulation = st.sidebar.button('Run Simulation')
 # api_client = ApiClient(api_token=api_key)
 
 
+if 'north' not in st.session_state:
+    st.session_state['north'] = []
+
 col1, col2, col3= st.columns([1,2,1])
 
 col2_con = col2.container()

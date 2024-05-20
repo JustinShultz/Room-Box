@@ -434,4 +434,5 @@ with tab1:
 with tab2:
     if baseline_model:
         st.write(baseline_model)
+        st.write(job_id)
         
