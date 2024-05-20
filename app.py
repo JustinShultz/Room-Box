@@ -1,20 +1,17 @@
-import streamlit as st
-from room_geometry import create_room
-from visualize_model import generate_vtk_model
-from honeybee.model import Model, Face
 import pathlib
-from streamlit_vtkjs import st_vtkjs
+from uuid import uuid4
+
+import streamlit as st
+import honeybee
+from honeybee.room import Room
+from honeybee.model import Model, Face
+from honeybee_radiance.properties.model import ModelRadianceProperties
 from honeybee_vtk.model import DisplayMode
 from honeybee_vtk.model import Model as VTKModel
 from honeybee_vtk.vtkjs.schema import SensorGridOptions
-
-if 'vtk_path' not in st.session_state:
-    st.session_state.vtk_path = None
-if 'target_folder' not in st.session_state:
-    st.session_state.target_folder = None
-
-
-
+from honeybee_radiance.sensorgrid import SensorGrid
+from visualize_model import generate_vtk_model
+from streamlit_vtkjs import st_vtkjs
 
 
 col1, col2, col3= st.columns([1,2,1])
@@ -24,18 +21,31 @@ col2_con = col2.container()
 
 col1.header('ROOMBOX')
 room_width = col1.slider('Room Width', value=30)
-room_length = col1.slider('Room Length', value=30)
+room_depth = col1.slider('Room Depth', value=30)
 room_height = col1.slider('Room Height', value=15, min_value=10, max_value=30)
 
 wwr = col1.slider("WWR",max_value=95,min_value=10, step=5)/100
 
-room = create_room(room_width,room_length,room_height)
+def create_room(width, depth, height):
+    room = Room.from_box('room',width,depth,height)
+
+    return room
+
+room = Room.from_box(
+    identifier=str(uuid4()),
+    width=room_width,
+    depth=room_depth,
+    height=room_height)
+
+grid = SensorGrid.from_mesh3d(str(uuid4()), room.generate_grid(x_dim=2))
 faces: Face = room.faces[1]
 faces.apertures_by_ratio(wwr)
 st.write(faces)
 
 
-simple_model = Model.from_objects(f'model_{room_width}_{room_length}_{room_height}_{wwr}',[room])
+simple_model = Model.from_objects(f'model_{room_width}_{room_depth}_{room_height}_{wwr}',[room],units='Feet')
+
+simple_model._properties._radiance = ModelRadianceProperties(simple_model, [grid])
 
 model_path = simple_model.to_hbjson(name=simple_model.identifier, folder='data')
 vtk_path = pathlib.Path('data', f'{simple_model.identifier}.vtkjs')
@@ -53,7 +63,9 @@ with col2_con:
 
 st.write(room)
 
+col3.subheader('Analysis Models')
+
 
 st.checkbox("Select Faces", room.faces)
 
-st.text_input("EPW Url") 
+st.text_input("EPW Url")
