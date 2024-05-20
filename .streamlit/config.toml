@@ -1,0 +1,9 @@
+[theme]
+
+base="light"
+backgroundColor="#FFFFFF"
+textColor="#434142"
+
+
+[browser]
+showSidebarNavigation = false
