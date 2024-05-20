@@ -20,8 +20,8 @@ col2_con = col2.container()
 
 
 col1.header('ROOMBOX')
-room_width = col1.slider('Room Width', value=30)
-room_depth = col1.slider('Room Depth', value=30)
+room_width = col1.slider('Room Width', value=30, min_value=5, max_value=5)
+room_depth = col1.slider('Room Depth', value=30, min_value=5, max_value=5)
 room_height = col1.slider('Room Height', value=15, min_value=10, max_value=30)
 
 wwr = col1.slider("WWR",max_value=95,min_value=10, step=5)/100
