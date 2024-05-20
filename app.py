@@ -63,7 +63,7 @@ room = Room.from_box(
     depth=room_depth,
     height=room_height)
 
-grid = SensorGrid.from_mesh3d(str(uuid4()), room.generate_grid(x_dim=2))
+grid = SensorGrid.from_mesh3d(str(uuid4()), room.generate_grid(x_dim=2, offset=2.5))
 faces: Face = room.faces[1]
 faces.apertures_by_ratio(wwr)
 st.write(faces)
@@ -97,8 +97,8 @@ epw_data = st.file_uploader("EPW File", type=['epw'], key='epw_data')
 if epw_data:
     epw_file = pathlib.Path(f'./data/{epw_data.name}')
     st.write(epw_file)
-    # epw_file.parent.mkdir(parents=True, exist_ok=True)
-    # epw_file.write_bytes(epw_data.read())
+    epw_file.parent.mkdir(parents=True, exist_ok=True)
+    epw_file.write_bytes(epw_data.read())
 epw_obj = EPW(epw_file)
 wea_obj = Wea.from_epw_file(epw_file)
 wea_file = wea_obj.write(f'./data/weather_file.wea')
@@ -113,9 +113,12 @@ if run_simulation:
     new_job = NewJob(owner, project, recipe, client=api_client)
     model_project_path = new_job.upload_artifact(
         pathlib.Path(model_path), 'streamlit-job')
+    wea_project_path = new_job.upload_artifact(
+        pathlib.Path(wea_file), 'streamlit-job'
+    )
     new_job.arguments = [
         {'model': model_project_path,
-         'wea': wea_file,
+         'wea': wea_project_path,
          'width': room_width, 
          'depth': room_depth, 
          'height': room_height,
@@ -141,7 +144,7 @@ if run_simulation:
                 JobStatusEnum.unknown]:
             with st.spinner(text="Simulation in Progres..."):
                 st.warning(f'Simulation is {job.status.status.value}...')
-                # st_autorefresh(interval=2000, limit=100)
+                st_autorefresh(interval=2000, limit=100)
 
         elif job.status.status in [JobStatusEnum.failed, JobStatusEnum.cancelled]:
             st.warning(f'Simulation is {job.status.status.value}')
