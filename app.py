@@ -88,7 +88,7 @@ project = st.sidebar.text_input('Project Name', value="hacksimbuild-2024")
 
 api_client = ApiClient(api_token=api_key)
 
-st.image("assets/240520_Roombox_Logo_w.Name.png", width=600)
+st.image("assets/240520_Roombox_Logo_w.Name_w.PplName.png", width=700)
 # if st.button('Clear Session State'):
 #     st.session_state.clear()
 #     st.success('Session state cleared!')
