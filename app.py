@@ -30,7 +30,11 @@ import dload
 
 #### CONFIGURE PAGE
 app_title = 'ROOMBOX - HACKSIMBUILD 2024'
-st.set_page_config(page_title=app_title, layout='wide')
+st.set_page_config(
+    page_title=app_title, 
+    layout='wide',
+    initial_sidebar_state='collapsed'
+    )
 
 if 'model_names' not in st.session_state:
     st.session_state['model_names'] = []
@@ -52,16 +56,18 @@ run_simulation = []
 vert_depth = 0
 vert_num = 0
 epw_data = 0
+epw_filepath = ''
+study_name = ''
 
 
 #### hide sidebar by default
-st.markdown("""
-    <style>
-        section[data-testid="stSidebar"][aria-expanded="true"]{
-            display: none;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+# st.markdown("""
+#     <style>
+#         section[data-testid="stSidebar"][aria-expanded="true"]{
+#             display: none;
+#         }
+#     </style>
+#     """, unsafe_allow_html=True)
 
 
 #### login
@@ -82,6 +88,7 @@ project = st.sidebar.text_input('Project Name', value="hacksimbuild-2024")
 api_client = ApiClient(api_token=api_key)
 
 st.header('ROOMBOX')
+st.image("assets/240520_Roombox_Logo_v4.png", width=300)
 if st.button('Clear Session State'):
     st.session_state.clear()
     st.success('Session state cleared!')
@@ -197,7 +204,7 @@ with tab1:
             objects=[room],
             units=units)
         
-        st.write(simple_model)
+        # st.write(simple_model)
         simple_model._properties._radiance = ModelRadianceProperties(simple_model, [grid])
 
         model_path = simple_model.to_hbjson(name=simple_model.identifier, folder='data')
@@ -210,9 +217,9 @@ with tab1:
                 if over_button:
                     if len(model_name) > 0:
                         st.session_state['model_names'].append(model_name)
-                        st.write(st.session_state['model_names'])
+                        # st.write(st.session_state['model_names'])
 
-                        st.write(model_path)
+                        # st.write(model_path)
 
                         # st.session_state['models'].append(model_path)
                         # st.write(st.session_state['models'])
@@ -236,12 +243,12 @@ with tab1:
                 if add_button:
                     if len(model_name) > 0:
                         st.session_state['model_names'] += [model_name]
-                        st.write(st.session_state['model_names'])
+                        # st.write(st.session_state['model_names'])
 
-                        st.write(model_path)
+                        # st.write(model_path)
 
                         st.session_state['models'].append(model_path)
-                        st.write(st.session_state['models'])
+                        # st.write(st.session_state['models'])
 
                         st.session_state['model_var'].append({
                             'width': room_width, 
@@ -252,7 +259,7 @@ with tab1:
                             'VLT': vlt, 
                             'SHGC': shgc
                         })
-                        st.write(st.session_state['model_var'])
+                        # st.write(st.session_state['model_var'])
 
                     else:
                         st.warning("Enter text")
@@ -295,7 +302,7 @@ with tab1:
             dload.save_unzip(epw_url, 'data/epw/', delete_after=True,)
 
 
-
+            
             for file_name in os.listdir('data/epw/'):
                 if file_name.endswith(".epw"):
                     epw_urlfile = 'data/epw/' + file_name
@@ -307,120 +314,122 @@ with tab1:
 
 
             st.write('-- or --')
-            epw_upload =  st.file_uploader("EPW File", type=['epw'], key='epw_data', accept_multiple_files=False)
-            st.write(epw_upload)
+            epw_upload =  st.file_uploader("EPW File", type=['epw'], key='epw_upload', accept_multiple_files=False)
+            # st.write(epw_upload)
 
             if epw_upload:
                 epw_filepath = pathlib.Path(f'./data/{epw_upload.name}')
-                st.write(epw_filepath)
+                # st.write(epw_filepath)
 
-            epw_data = EPW(epw_filepath)
+            if epw_filepath:
+                epw_data = EPW(epw_filepath)
 
-
+        # st.write(epw_data)
         if epw_data != 0:
             st.write('Project Location:',str(epw_data.location).split(',')[1])
+            study_name = st.text_input('Study Name')
             run_simulation = st.button('Run Simulation')
         else:
             st.error('Add Project EPW file')
 
 
-    if epw_data:
-        # epw_file = pathlib.Path(f'./data/{epw_data.name}')
-        # st.write(epw_file)
-        # epw_file.parent.mkdir(parents=True, exist_ok=True)
-        # epw_file.write_bytes(epw_data.read())
+        if epw_data:
+            # epw_file = pathlib.Path(f'./data/{epw_data.name}')
+            # st.write(epw_file)
+            # epw_file.parent.mkdir(parents=True, exist_ok=True)
+            # epw_file.write_bytes(epw_data.read())
 
-        # epw_obj = EPW(epw_file)
-        wea_obj = Wea.from_epw_file(epw_filepath)
-        wea_file = wea_obj.write(f'./data/weather_file.wea')
-        st.write(wea_file)
-        # .to_wea(file_path=epw_file)
+            # epw_obj = EPW(epw_file)
+            wea_obj = Wea.from_epw_file(epw_filepath)
+            wea_file = wea_obj.write(f'./data/weather_file.wea')
+            # st.write(wea_file)
+            # .to_wea(file_path=epw_file)
 
-        if run_simulation:
-            job_id = None
+            if run_simulation:
+                job_id = None
 
-            recipe = Recipe(
-                owner = 'ladybug-tools',
-                name = 'annual-daylight',
-                tag = 'latest', 
-                client = api_client
-                )
-            
-            new_job = NewJob(
-                owner=owner, 
-                project=project, 
-                recipe=recipe, 
-                name='HackSimBuild Studies',
-                client=api_client)
-            wea_project_path = new_job.upload_artifact(pathlib.Path(wea_file), 'streamlit-job')
-            
-            recipe_inputs = {
-                'wea': wea_project_path
-            }
-
-            index = 0
-            for mod in st.session_state['models']:
-                st.write(mod)
-                model_project_path = new_job.upload_artifact(
-                    pathlib.Path(mod), 'streamlit-job')
+                recipe = Recipe(
+                    owner = 'ladybug-tools',
+                    name = 'annual-daylight',
+                    tag = 'latest', 
+                    client = api_client
+                    )
                 
-                inputs = dict(recipe_inputs)
-
-                inputs['model'] = model_project_path
-                inputs.update(st.session_state['model_var'][index])
+                new_job = NewJob(
+                    owner=owner, 
+                    project=project, 
+                    recipe=recipe, 
+                    name=study_name,
+                    client=api_client)
+                wea_project_path = new_job.upload_artifact(pathlib.Path(wea_file), 'streamlit-job')
                 
-                index += 1
+                recipe_inputs = {
+                    'wea': wea_project_path
+                }
 
-                # st.session_state['inputs']['model'] = model_project_path
+                index = 0
+                for mod in st.session_state['models']:
+                    # st.write(mod)
+                    model_project_path = new_job.upload_artifact(
+                        pathlib.Path(mod), 'streamlit-job')
+                    
+                    inputs = dict(recipe_inputs)
 
-                # inputs= [
-                #     {'model': model_project_path,
-                #     'wea': wea_project_path,
-                #     # 'width': room_width, 
-                #     # 'depth': room_depth, 
-                #     # 'height': room_height,
-                #     # 'glazing-ration': wwr, 
-                #     # 'VLT': vlt, 
-                #     # 'SHGC': shgc
-                #     }
-                # ]
+                    inputs['model'] = model_project_path
+                    inputs.update(st.session_state['model_var'][index])
+                    
+                    index += 1
 
-                # st.session_state['study_inputs'].append(st.session_state['inputs'])
-                st.session_state['study_inputs'].append(inputs)
+                    # st.session_state['inputs']['model'] = model_project_path
 
-            st.write(st.session_state['study_inputs'])
-            new_job.arguments = st.session_state['study_inputs']
+                    # inputs= [
+                    #     {'model': model_project_path,
+                    #     'wea': wea_project_path,
+                    #     # 'width': room_width, 
+                    #     # 'depth': room_depth, 
+                    #     # 'height': room_height,
+                    #     # 'glazing-ration': wwr, 
+                    #     # 'VLT': vlt, 
+                    #     # 'SHGC': shgc
+                    #     }
+                    # ]
 
-            job = new_job.create()
+                    # st.session_state['study_inputs'].append(st.session_state['inputs'])
+                    st.session_state['study_inputs'].append(inputs)
 
-            job_id = job.id
+                st.write(st.session_state['study_inputs'])
+                new_job.arguments = st.session_state['study_inputs']
 
-            if job_id is not None and owner is not None and project is not None:
+                job = new_job.create()
 
-                job = Job(owner, project, job_id, client=api_client)
+                job_id = job.id
 
-                st.write(
-                    f'Checkout your job [here](https://app.pollination.cloud/{owner}/projects/{project}/jobs/{job_id})')
+                if job_id is not None and owner is not None and project is not None:
 
-                if job.status.status in [
-                        JobStatusEnum.pre_processing,
-                        JobStatusEnum.running,
-                        JobStatusEnum.created,
-                        JobStatusEnum.unknown]:
-                    with st.spinner(text="Simulation in Progres..."):
-                        st.warning(f'Simulation is {job.status.status.value}...')
-                        # st_autorefresh(interval=2000, limit=100)
+                    job = Job(owner, project, job_id, client=api_client)
 
-                elif job.status.status in [JobStatusEnum.failed, JobStatusEnum.cancelled]:
-                    st.warning(f'Simulation is {job.status.status.value}')
-                # else:
-                #     job.runs_dataframe.parameters
-                #     res_model_path = view_results(
-                #         owner, project, job_id, api_key)
-                #     st_vtkjs(
-                #         content=pathlib.Path(res_model_path).read_bytes(), key='results',
-                #         subscribe=False
-                #     )
+                    st.write(
+                        f'Checkout your job [here](https://app.pollination.cloud/{owner}/projects/{project}/jobs/{job_id})')
+
+                    if job.status.status in [
+                            JobStatusEnum.pre_processing,
+                            JobStatusEnum.running,
+                            JobStatusEnum.created,
+                            JobStatusEnum.unknown]:
+                        with st.spinner(text="Simulation in Progres..."):
+                            st.warning(f'Simulation is {job.status.status.value}...')
+                            # st_autorefresh(interval=2000, limit=100)
+
+                    elif job.status.status in [JobStatusEnum.failed, JobStatusEnum.cancelled]:
+                        st.warning(f'Simulation is {job.status.status.value}')
+                    # else:
+                    #     job.runs_dataframe.parameters
+                    #     res_model_path = view_results(
+                    #         owner, project, job_id, api_key)
+                    #     st_vtkjs(
+                    #         content=pathlib.Path(res_model_path).read_bytes(), key='results',
+                    #         subscribe=False
+                    #     )
 
 with tab2:
     if baseline_model:
