@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import streamlit as st
 import honeybee
+import ladybug
 from honeybee.room import Room
 from honeybee.model import Model, Face
 from honeybee_radiance.properties.model import ModelRadianceProperties
@@ -13,6 +14,8 @@ from honeybee_radiance.sensorgrid import SensorGrid
 from visualize_model import generate_vtk_model
 from streamlit_vtkjs import st_vtkjs
 
+from ladybug.epw import EPW
+
 
 col1, col2, col3= st.columns([1,2,1])
 
@@ -20,11 +23,16 @@ col2_con = col2.container()
 
 
 col1.header('ROOMBOX')
+
+col1.subheader('Room Geometry')
 room_width = col1.slider('Room Width', value=30, min_value=5, max_value=5)
 room_depth = col1.slider('Room Depth', value=30, min_value=5, max_value=5)
 room_height = col1.slider('Room Height', value=15, min_value=10, max_value=30)
 
-wwr = col1.slider("WWR",max_value=95,min_value=10, step=5)/100
+col1.subheader('Glazing')
+wwr = col1.slider("WWR", max_value=95, min_value=10, step=5)/100
+vlt = col1.slider("VLT", max_value=90, min_value=10, step=5)/100
+shgc = col1.slider("SHGC", max_value=90, min_value=10, step=5)/100
 
 def create_room(width, depth, height):
     room = Room.from_box('room',width,depth,height)
