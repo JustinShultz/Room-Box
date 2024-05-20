@@ -28,13 +28,23 @@ from streamlit_autorefresh import st_autorefresh
 app_title = 'ROOMBOX - HACKSIMBUILD 2024'
 st.set_page_config(page_title=app_title, layout='wide')
 
-if 'analysis_models' not in st.session_state:
-    st.session_state['analysis_models'] = []
+if 'model_names' not in st.session_state:
+    st.session_state['model_names'] = []
 
-model_name =[]
+if 'models' not in st.session_state:
+    st.session_state['models'] = []
+
+if 'study_inputs' not in st.session_state:
+    st.session_state['study_inputs'] = []
+
+if 'model_var' not in st.session_state:
+    st.session_state['model_var'] = []
+
+model_name = []
 baseline_model = []
 hor_num = 0
 hor_depth = 0
+run_simulation = []
 # vert_depth = 0
 # vert_num = 0
 
@@ -61,11 +71,16 @@ owner = st.sidebar.text_input('Project Owner', value="justinshultz")
 project = st.sidebar.text_input('Project Name', value="hacksimbuild-2024")
 
 
+
 #### run pollination
 
 api_client = ApiClient(api_token=api_key)
 
 st.header('ROOMBOX')
+if st.button('Clear Session State'):
+    st.session_state.clear()
+    st.success('Session state cleared!')
+
 tab1, tab2 = st.tabs(['| 1 Model Creation','| 2 Results Visualization'])
 
 with tab1:
@@ -88,10 +103,10 @@ with tab1:
 
         #### room program
         with st.expander('1 - Bldg & Room Program', expanded=False):
-            bldg_prog = st.selectbox('Bldg Program', options=['Select Bldg Program', 'Office','Lab','Higher Ed'], index=0, label_visibility='collapsed')
+            bldg_prog = st.selectbox('Bldg Program', options=['Select Bldg Program', 'Office','Lab','Higher Ed'], index=1, label_visibility='collapsed')
             room_prog = ''
             if bldg_prog != 'Select Bldg Program':
-                room_prog = st.selectbox('Room Program', options=['Select Room Program', 'Open Office','Conference','Classroom'], index=0, label_visibility='collapsed')
+                room_prog = st.selectbox('Room Program', options=['Select Room Program', 'Open Office','Conference','Classroom'], index=1, label_visibility='collapsed')
         
         if bldg_prog != 'Select Bldg Program' and room_prog != 'Select Room Program':
             st.write(bldg_prog," :: ",room_prog)
@@ -161,22 +176,47 @@ with tab1:
         faces.apertures_by_ratio(wwr)
         apertures: Aperture = faces.apertures[0]
 
-        st.write(apertures)
+        # st.write(apertures)
 
         if hor_num >0:
             apertures.louvers_by_count(hor_num,hor_depth)
 
 
-        simple_model = Model.from_objects(f'model_{room_width}_{room_depth}_{room_height}_{wwr}_{room_orient}_{hor_depth}_{hor_num}',[room],units='Feet')
+        simple_model = Model.from_objects(
+            identifier=f'model_{room_width}_{room_depth}_{room_height}_{wwr}_{room_orient}_{hor_depth}_{hor_num}',
+            objects=[room],
+            units=units)
+        
+        st.write(simple_model)
+        simple_model._properties._radiance = ModelRadianceProperties(simple_model, [grid])
+
+        model_path = simple_model.to_hbjson(name=simple_model.identifier, folder='data')
+        vtk_path = pathlib.Path('data', f'{simple_model.identifier}.vtkjs')
 
 
-        if model_name in st.session_state['analysis_models']:
+        if model_name in st.session_state['model_names']:
             if bldg_prog != 'Select Bldg Program' and room_prog != 'Select Room Program':
-                add_button = st.button("OVERRIDE: {}".format(model_name), key='add_button', type="primary")
-                if add_button:
+                over_button = st.button("OVERRIDE: {}".format(model_name), key='over_button', type="primary")
+                if over_button:
                     if len(model_name) > 0:
-                        st.session_state['analysis_models'] += [model_name]
-                        st.write(st.session_state['analysis_models'])
+                        st.session_state['model_names'].append(model_name)
+                        st.write(st.session_state['model_names'])
+
+                        st.write(model_path)
+
+                        # st.session_state['models'].append(model_path)
+                        # st.write(st.session_state['models'])
+
+                        # st.session_state['models_varialbles'].append({
+                        #     'width': room_width, 
+                        #     'depth': room_depth, 
+                        #     'height': room_height,
+                        #     'orientation': room_orient,
+                        #     'glazing-ration': wwr, 
+                        #     'VLT': vlt, 
+                        #     'SHGC': shgc
+                        # })
+
                     else:
                         st.warning("Enter text")
 
@@ -185,17 +225,28 @@ with tab1:
                 add_button = st.button("SAVE ANALYSIS MODEL", key='add_button')
                 if add_button:
                     if len(model_name) > 0:
-                        st.session_state['analysis_models'] += [model_name]
-                        st.write(st.session_state['analysis_models'])
+                        st.session_state['model_names'] += [model_name]
+                        st.write(st.session_state['model_names'])
+
+                        st.write(model_path)
+
+                        st.session_state['models'].append(model_path)
+                        st.write(st.session_state['models'])
+
+                        st.session_state['model_var'].append({
+                            'width': room_width, 
+                            'depth': room_depth, 
+                            'height': room_height,
+                            'orientation': room_orient,
+                            'glazing-ration': wwr, 
+                            'VLT': vlt, 
+                            'SHGC': shgc
+                        })
+                        st.write(st.session_state['model_var'])
+
                     else:
                         st.warning("Enter text")
 
-
-
-    simple_model._properties._radiance = ModelRadianceProperties(simple_model, [grid])
-
-    model_path = simple_model.to_hbjson(name=simple_model.identifier, folder='data')
-    vtk_path = pathlib.Path('data', f'{simple_model.identifier}.vtkjs')
 
     if not vtk_path.is_file():
         VTKModel.from_hbjson(model_path, SensorGridOptions.Sensors).to_vtkjs(
@@ -209,22 +260,18 @@ with tab1:
 
 
     with col3:
-        
-        
 
-        st.subheader('({}) Analysis Models'.format(len(st.session_state['analysis_models'])))
+        st.subheader('({}) Analysis Models'.format(len(st.session_state['model_names'])))
         col3_body1, col3_body2 = st.columns([2,1])
 
-        if len(st.session_state['analysis_models']) >0:
+        if len(st.session_state['model_names']) >0:
             clear_models = col3_body2.button('X CLEAR')
 
             if clear_models:
-                st.session_state['analysis_models']=[]
+                st.session_state['model_names']=[]
 
-
-        
-
-            baseline_model = col3_body1.radio('Select Baseline Model:', options=st.session_state['analysis_models'])
+            baseline_model = col3_body1.radio('Select Baseline Model:', options=st.session_state['model_names'])
+            st.write(baseline_model)
 
         with st.expander('5 - Project Location', expanded=False):
             url = "https://www.ladybug.tools/epwmap/"
@@ -240,45 +287,74 @@ with tab1:
             st.error('Add Project EPW file')
 
 
+        if epw_data:
+            epw_file = pathlib.Path(f'./data/{epw_data.name}')
+            st.write(epw_file)
+            epw_file.parent.mkdir(parents=True, exist_ok=True)
+            epw_file.write_bytes(epw_data.read())
 
+            epw_obj = EPW(epw_file)
+            wea_obj = Wea.from_epw_file(epw_file)
+            wea_file = wea_obj.write(f'./data/weather_file.wea')
+            st.write(wea_file)
+            # .to_wea(file_path=epw_file)
 
+        st.write('Honeybee Models to Upload')
+        st.write(st.session_state['models'])
+
+        st.write('Additional Parameters')
+        st.write(st.session_state['model_var'])
         
-
-
-
-    if epw_data:
-        epw_file = pathlib.Path(f'./data/{epw_data.name}')
-        st.write(epw_file)
-        epw_file.parent.mkdir(parents=True, exist_ok=True)
-        epw_file.write_bytes(epw_data.read())
-
-        epw_obj = EPW(epw_file)
-        wea_obj = Wea.from_epw_file(epw_file)
-        wea_file = wea_obj.write(f'./data/weather_file.wea')
-        st.write(wea_file)
-        # .to_wea(file_path=epw_file)
-
         if run_simulation:
             job_id = None
 
-            recipe = Recipe('ladybug-tools', 'annual-daylight',
-                            'latest', api_client)
+            recipe = Recipe(
+                owner = 'ladybug-tools',
+                name = 'annual-daylight',
+                tag = 'latest', 
+                client = api_client
+                )
+            
             new_job = NewJob(owner, project, recipe, client=api_client)
-            model_project_path = new_job.upload_artifact(
-                pathlib.Path(model_path), 'streamlit-job')
-            wea_project_path = new_job.upload_artifact(
-                pathlib.Path(wea_file), 'streamlit-job'
-            )
-            new_job.arguments = [
-                {'model': model_project_path,
-                'wea': wea_project_path,
-                'width': room_width, 
-                'depth': room_depth, 
-                'height': room_height,
-                'glazing-ration': wwr, 
-                'VLT': vlt, 
-                'SHGC': shgc}
-            ]
+            wea_project_path = new_job.upload_artifact(pathlib.Path(wea_file), 'streamlit-job')
+            
+            recipe_inputs = {
+                'wea': wea_project_path
+            }
+
+            index = 0
+            for mod in st.session_state['models']:
+                st.write(mod)
+                model_project_path = new_job.upload_artifact(
+                    pathlib.Path(mod), 'streamlit-job')
+                
+                inputs = dict(recipe_inputs)
+
+                inputs['model'] = model_project_path
+                inputs.update(st.session_state['model_var'][index])
+                
+                index += 1
+
+                # st.session_state['inputs']['model'] = model_project_path
+
+                # inputs= [
+                #     {'model': model_project_path,
+                #     'wea': wea_project_path,
+                #     # 'width': room_width, 
+                #     # 'depth': room_depth, 
+                #     # 'height': room_height,
+                #     # 'glazing-ration': wwr, 
+                #     # 'VLT': vlt, 
+                #     # 'SHGC': shgc
+                #     }
+                # ]
+
+                # st.session_state['study_inputs'].append(st.session_state['inputs'])
+                st.session_state['study_inputs'].append(inputs)
+
+            st.write(st.session_state['study_inputs'])
+            new_job.arguments = st.session_state['study_inputs']
+
             job = new_job.create()
 
             job_id = job.id
@@ -297,21 +373,20 @@ with tab1:
                         JobStatusEnum.unknown]:
                     with st.spinner(text="Simulation in Progres..."):
                         st.warning(f'Simulation is {job.status.status.value}...')
-                        st_autorefresh(interval=2000, limit=100)
+                        # st_autorefresh(interval=2000, limit=100)
 
                 elif job.status.status in [JobStatusEnum.failed, JobStatusEnum.cancelled]:
                     st.warning(f'Simulation is {job.status.status.value}')
-                else:
-                    job.runs_dataframe.parameters
-                    # res_model_path = view_results(
-                    #     query.owner, query.project, query.job_id, api_key)
-                    # st_vtkjs(
-                    #     content=pathlib.Path(res_model_path).read_bytes(), key='results',
-                    #     subscribe=False
-                    # )
-
-
+                # else:
+                #     job.runs_dataframe.parameters
+                #     res_model_path = view_results(
+                #         owner, project, job_id, api_key)
+                #     st_vtkjs(
+                #         content=pathlib.Path(res_model_path).read_bytes(), key='results',
+                #         subscribe=False
+                #     )
 
 with tab2:
     if baseline_model:
         st.write(baseline_model)
+        
