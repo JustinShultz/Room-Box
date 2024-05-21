@@ -6,8 +6,6 @@ import glob
 import ladybug_geometry.geometry2d
 import ladybug_geometry.geometry3d
 import streamlit as st
-import honeybee
-import ladybug
 from ladybug.epw import EPW
 from ladybug.wea import Wea
 import ladybug_geometry
@@ -21,12 +19,13 @@ from honeybee_radiance.sensorgrid import SensorGrid
 from visualize_model import generate_vtk_model
 from streamlit_vtkjs import st_vtkjs
 from pollination_io.api.client import ApiClient
-from pollination_io.interactors import Job, NewJob, Recipe
+from pollination_io.interactors import Job, NewJob, Recipe, Run
 from queenbee.job.job import JobStatusEnum
 from streamlit_autorefresh import st_autorefresh
 import dload
 import zipfile
-
+from ladybug_vtk._extend_visualization_set import vs_to_vtkjs
+from honeybee_display.model import VisualizationSet
 
 
 #### CONFIGURE PAGE
@@ -444,7 +443,7 @@ with tab2:
     api_client = get_api_client()
 
     account = select_account('select-account', api_client)
-
+    study = None
     if account:
         # if it is an organization it uses account_name otherwise username
         project_owner = account.get('username') or account.get('account_name')
@@ -478,7 +477,7 @@ with tab2:
             with scol2:
                 st.json(study or '{}', expanded=False)
         
-        if study:
+        if study: 
             #get run name
             study_name = study.get('name')
             # st.write(study.get('id'))
@@ -494,38 +493,64 @@ with tab2:
                     project_owner=project_owner,
                     job_id=study.get('id'),
                 )
-                # st.write(run)
+                # print(run.keys())
+
+                # assert False, run['owner']['name']
+                    # project = project_name, 
+                    # job_id = study.get('id'), 
+                    # id = run.get('id'), 
+                    # client = api_client)
+                
+                run_io = Run(
+                    owner = run['owner']['name'], 
+                    project = project_name, 
+                    job_id = study.get('id'), 
+                    id = run.get('id'), 
+                    client = api_client)
+                data = run_io.download_zipped_output('visualization')
+                out_file = pathlib.Path('data', 'results', 'visualization.vsf')
+                with zipfile.ZipFile(data) as zip_folder:
+                    zip_folder.extractall(out_file.parent)
+                
+                vs = VisualizationSet.from_file(out_file.as_posix())
+                vtkjs_file = out_file.parent.joinpath(f'{run.get("id")}.vtkjs')
+
             with scol2:
                 st.json(run or '{}', expanded=False)
-            
-        if study:
-            study_id = study.get('id')
-            st.subheader('Select an artifact:')
-            st.info('It returns the name of the file \
-                    and the binary data to save.')
-
-            acol1, acol2 = st.columns(2)
-
-            with acol1:
-                artifact = select_cloud_artifact(
-                    'sel-artifact',
-                    api_client,
-                    project_name=project_name,
-                    project_owner=project_owner,
-                    study_id=study_id,
-                    file_name_match=".*"
-                )
-            with acol2:
-                st.json(artifact or {}, expanded=False)
         
-        name, value, type = artifact
+            if not vtkjs_file.is_file():
+                vs_to_vtkjs(vs, out_file.parent, run.get('id'))
+            viewer('results_viewer', content=vtkjs_file.read_bytes())
 
-        st.write(name)
+        # if study:
+        #     study_id = study.get('id')
+        #     st.subheader('Select an artifact:')
+        #     st.info('It returns the name of the file \
+        #             and the binary data to save.')
 
-        if artifact:
-            st.info('Click on visualization card.')
-            if name and name.endswith('vtkjs'):
-                viewer(key='my-vsf', content=value)
+        #     acol1, acol2 = st.columns(2)
+
+        #     with acol1:
+        #         artifact = select_cloud_artifact(
+        #             'sel-artifact',
+        #             api_client,
+        #             project_name=project_name,
+        #             project_owner=project_owner,
+        #             study_id=study_id,
+        #             file_name_match=".*"
+        #         )
+        #     with acol2:
+        #         st.json(artifact or {}, expanded=False)
+        
+        # name, value, type = artifact
+
+
+        # st.write(name)
+
+        # if artifact:
+        #     st.info('Click on visualization card.')
+        #     if name and name.endswith('vtkjs'):
+        #         viewer(key='my-vsf', content=value)
 
         # st.write(artifact.file)
         # if artifact:
